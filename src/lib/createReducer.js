@@ -35,10 +35,11 @@ const createReducer = (fun, dispatch, connectionParams, connectionSeed, {
         const getConnectionParamsObject = getObjOrFun.bind(null, connectionParams);
         const getConnectionSeedObject   = getObjOrFun.bind(null, connectionSeed);
 
-        let curConnectionParamsObject, curConnectionSeedObject, storeInitialized = false;
+        let curConnectionParamsObject, curConnectionSeedObject, storeInitialized = false, socketStarted = false;
 
         const reconnect = (state) => {
             storeInitialized = true;
+            socketStarted = false;
 
             curConnectionParamsObject = getConnectionParamsObject(state);
             curConnectionSeedObject = getConnectionSeedObject(state);
@@ -66,6 +67,18 @@ const createReducer = (fun, dispatch, connectionParams, connectionSeed, {
                 log("RECV change", data);
                 serverChangeState(data.diff)
             });
+
+            connection._socket.once('start', () => {
+                log("RECV start");
+                socketStarted = true;
+            });
+
+            connection._socket.once('unauthorized', (msg) => {
+                log("RECV unauthorized");
+                console.error("Socket server sent unauthorized message", msg);
+            });
+
+
         }
 
         const requestReplace = () => {
@@ -78,7 +91,7 @@ const createReducer = (fun, dispatch, connectionParams, connectionSeed, {
             const diff = compare(oldstate, state);
 
             const data = { diff, action }
-            if(connection)
+            if(connection && storeInitialized && socketStarted)
                 connection._socket.emit('change', data);
         }
 
