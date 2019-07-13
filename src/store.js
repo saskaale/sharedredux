@@ -1,7 +1,7 @@
 import { composeWithDevTools } from 'redux-devtools-extension';
 import { createStore, applyMiddleware } from 'redux';
 
-import reducer from './reducers';
+import reducer, {addSubscriber} from './reducers';
 
 //here place your middlewares
 const middleware = [];
@@ -14,6 +14,8 @@ const store = createStore(reducer, composeEnhancers(
     // other store enhancers if any
   )
 );
+
+addSubscriber(store);
 
 const dispatch = (o) => store.dispatch(o);
 

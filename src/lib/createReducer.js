@@ -2,6 +2,7 @@ import { compare } from 'fast-json-patch';
 import { apply_patch } from 'jsonpatch';
 import Connector from './connector';
 import createActions from './createActions';
+import {shallowCompare} from './utils';
 
 const defaultStatus = {
     connected: false
@@ -28,24 +29,31 @@ const createReducer = (fun, dispatch, connectionParams, connectionSeed, {
         }
 
         const getObjOrFun = (data, state) => 
-                data === 'function' ? data(state) : data;
+                typeof data === 'function' ? data(state) : data;
 
 
         const getConnectionParamsObject = getObjOrFun.bind(null, connectionParams);
         const getConnectionSeedObject   = getObjOrFun.bind(null, connectionSeed);
 
+        let curConnectionParamsObject, curConnectionSeedObject, storeInitialized = false;
+
         const reconnect = (state) => {
-            console.log('recreate Connection');
+            storeInitialized = true;
+
+            curConnectionParamsObject = getConnectionParamsObject(state);
+            curConnectionSeedObject = getConnectionSeedObject(state);
+
+            console.log('recreate Connection', curConnectionParamsObject, curConnectionSeedObject);
+
             if( connection ){
+                log("remove old Connection");
                 updateStatus({connected: false});
                 connection._socket.disconnect();
             }
 
-            
-
             connection = new Connector(
-                            getConnectionParamsObject(state),
-                            getConnectionSeedObject(state),
+                            curConnectionParamsObject,
+                            curConnectionSeedObject,
                             updateStatus
                         );
 
@@ -60,41 +68,26 @@ const createReducer = (fun, dispatch, connectionParams, connectionSeed, {
             });
         }
 
-/*        const setConnectionParams = (params) => {
-            //TODO: do better object comparsion
-            const objCompare = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-
-            if(!objCompare(curConnectionParams, params)){
-                curConnectionParams = params;
-                reconnect();
-            }
-        }
-*/
-        reconnect();
-
         const requestReplace = () => {
             log("EMIT requestReplace");
             if(connection)
                 connection._socket.emit('requestReplace');
         }
 
-
-        const subscriber = (state, oldstate, action) => {
+        const reducerSubscriber = (state, oldstate, action) => {
             const diff = compare(oldstate, state);
 
             const data = { diff, action }
             if(connection)
                 connection._socket.emit('change', data);
         }
-        
-
 
         const reducer = (state, action) => {
             const ret = fun(state, action);
 
             const sendAction = shouldSendAction(action);
             if(state && ( ret !== state || shouldSendAction(action) )){
-                subscriber(
+                reducerSubscriber(
                     ret, 
                     state || {}, 
                     sendAction ? action : undefined
@@ -124,7 +117,33 @@ const createReducer = (fun, dispatch, connectionParams, connectionSeed, {
             }
         };
 
+
+
+
+        const storeSubscriber = (state) => {
+            if(!storeInitialized){
+                reconnect(state);
+                return;
+            }
+            const connParams = getConnectionParamsObject(state);
+            const connSeed = getConnectionSeedObject(state);
+            if(shallowCompare(connParams, curConnectionParamsObject) || 
+                    shallowCompare(connSeed, curConnectionSeedObject)
+                ){
+                reconnect(state);
+                return;
+            }
+        }
+
+        const addSubscriber = (store) => {
+            const action = () => storeSubscriber(store.getState());
+
+            action();
+            store.subscribe(action);
+        }
+
         return {
+            addSubscriber,
             reconnect,
             reducer
         }

@@ -1,7 +1,8 @@
 import React, {useState, useEffect} from 'react';
-import {connect, useSelector} from 'react-redux';
+import {connect, useSelector, useDispatch} from 'react-redux';
 //import logo from './logo.svg';
 import {addInteger} from '../../actions/container';
+import {select} from '../../actions/app';
 import './index.css';
 
 /*
@@ -27,6 +28,8 @@ import './index.css';
 
 function App({value, increment}) {
   const [updating, changeUpdating] = useState(false);
+  const container_key = useSelector((state) => state.app.selectedcontainer)
+  const dispatch = useDispatch();
 
   useEffect(() => {
     const int = setInterval(() => {
@@ -38,10 +41,20 @@ function App({value, increment}) {
     return () => {
       clearInterval(int);
     }
-  })
+  });
+
+  let containers = [];
+  for(let i = 0; i < 10; ++i) containers.push(i);
 
   return (
     <div className="App">
+      <select 
+        type='checkbox' 
+        onChange={(event) => dispatch(select(event.target.value))} 
+        defaultValue={container_key}
+        >
+        {containers.map(id=>(<option key={id} value={id} >Container {id}</option>))}
+      </select>
       <div> value: {value}</div>
       <div onClick={() => increment()}>manual increment</div>
       <div>

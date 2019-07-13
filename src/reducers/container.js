@@ -5,9 +5,8 @@ import {dispatch} from '../store';
 
 const defaultState = {value: 12};
 
-const {reducer} = createReducer((state = defaultState, action) => {
+const {reducer, addSubscriber} = createReducer((state = defaultState, action) => {
     const {type, payload} = action;
-
 
 
     switch (type){
@@ -19,6 +18,7 @@ const {reducer} = createReducer((state = defaultState, action) => {
         default:
             return state;
     }
-}, o => dispatch(o), {URL:'http://localhost:3333/container'}, {key: 'model_3'});
+}, o => dispatch(o), {URL:'http://localhost:3333/container'}, (state) => ({key: `model_${state.app.container}`}));
 
+export {addSubscriber};
 export default reducer;
